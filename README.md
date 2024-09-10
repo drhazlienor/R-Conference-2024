@@ -17,6 +17,7 @@ The workshop is designed for public health professionals and researchers interes
 To get started, clone this repository and follow the instructions provided in the README.md file within the Code directory. Ensure you have R and the required packages installed.
 
 ## Dataset
+[Download Leptospirosis Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/blob/main/leptospirosis.xlsx)
 [Download Measles Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/raw/main/measle_kel.xlsx)
 
 
