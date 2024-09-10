@@ -17,7 +17,7 @@ The workshop is designed for public health professionals and researchers interes
 To get started, create a new project from Git repository in Posit Cloud
 
 ## Dataset
-- [Download Leptospirosis Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/blob/main/leptospirosis.xlsx)
+- [Download Leptospirosis Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/raw/main/leptospirosis.xlsx)
 - [Download Measles Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/raw/main/measle_kel.xlsx)
 
 
