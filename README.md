@@ -14,11 +14,11 @@ This repository contains the datasets and code used in the Spatial Workshop cond
 The workshop is designed for public health professionals and researchers interested in applying spatial analysis techniques to health data. By the end of the workshop, participants will have hands-on experience in handling spatial datasets, understanding point pattern analysis, and using R for geospatial data visualization.
 
 ## Getting Started
-To get started, clone this repository and follow the instructions provided in the README.md file within the Code directory. Ensure you have R and the required packages installed.
+To get started, create a new project from Git repository in Posit Cloud
 
 ## Dataset
-[Download Leptospirosis Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/blob/main/leptospirosis.xlsx)
-[Download Measles Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/raw/main/measle_kel.xlsx)
+- [Download Leptospirosis Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/blob/main/leptospirosis.xlsx)
+- [Download Measles Data XLSX](https://github.com/drhazlienor/spatialworkshop.github.io/raw/main/measle_kel.xlsx)
 
 
 ## Contact
