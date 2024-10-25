@@ -1,0 +1,367 @@
+---
+title: "Spatial Analysis - Example"
+author: "Dr Hazlienor"
+date: "2024-10-25"
+output: html_document
+---
+
+Example of analysis in spatial epidemiology using pre-existing dataset in R
+
+#Geostatistical data
+
+## Prepare environment 
+
+### install packages
+```{r}
+install.packages(c("sf", "spData", "spdep", "ggplot2", "sp", "gstat"))
+```
+
+### Load the required libraries
+```{r}
+library(sf)         # Handling spatial data
+library(gstat)      # Handling geostatistical data
+library(spdep)      # Spatial dependency and autocorrelation
+library(spData)
+library(sp)         # Contains 'meuse' dataset
+library(tmap)       # Data visualization
+```
+
+## Prepare data
+We'll use the meuse dataset, which contains the spatial coordinates of soil samples with heavy metal concentrations. Imagine these metals affect public health (e.g., lead exposure affecting residents).
+```{r}
+# Load the dataset
+data("meuse", package = "sp")
+
+# Convert to spatial data frame
+coordinates(meuse) <- ~x + y
+proj4string(meuse) <- CRS("+init=epsg:28992")  # Dutch coordinate system
+
+# Check the structure of the data
+head(meuse)
+```
+
+## Mapping
+
+# Create a simple map of zinc concentrations
+```{r}
+tm_shape(st_as_sf(meuse)) +
+  tm_dots("zinc", title = "Zinc (ppm)", palette = "YlOrRd") +
+  tm_layout(main.title = "Zinc Pollution in Study Area", main.title.size = 1.2)
+
+```
+
+## Variogram: Measure Spatial Dependence
+
+A variogram helps analyze how zinc concentrations vary with distance, which is essential for geostatistical modeling.
+```{r}
+# Calculate experimental variogram
+zinc_variogram <- variogram(zinc ~ 1, meuse)
+
+# Plot the variogram
+plot(zinc_variogram, main = "Experimental Variogram for Zinc")
+
+```
+We’ll fit a theoretical model (e.g., Spherical model) to the experimental variogram.
+```{r}
+# Fit a spherical variogram model
+zinc_model <- fit.variogram(zinc_variogram, model = vgm(psill = 0.6, "Sph", range = 500, nugget = 0.2))
+
+# Plot the fitted variogram model
+plot(zinc_variogram, zinc_model, main = "Fitted Variogram Model (Zinc)")
+```
+
+
+Variogram analysis reveals how zinc concentrations vary with distance, which informs the spatial dependence of health risks.
+
+## Kriging: Interpolating Pollution Levels Across the Region
+
+Kriging is a geostatistical interpolation method used to predict values at unsampled locations.
+```{r}
+# Create a grid for interpolation
+data("meuse.grid", package = "sp")
+coordinates(meuse.grid) <- ~x + y
+gridded(meuse.grid) <- TRUE
+
+
+# Set the correct CRS for both objects
+proj4string(meuse) <- CRS("+init=epsg:28992")
+proj4string(meuse.grid) <- CRS("+init=epsg:28992")
+
+# Perform ordinary kriging
+zinc_kriging <- krige(zinc ~ 1, meuse, meuse.grid, model = zinc_model)
+
+# Plot the kriging result
+# Load the required library for raster manipulation
+library(raster)
+
+# Convert kriging results to a raster
+zinc_raster <- raster(zinc_kriging, layer = "var1.pred")
+
+# Plot the raster to confirm
+plot(zinc_raster, main = "Kriged Zinc Levels")
+
+
+
+```
+Kriging interpolation predicts pollution levels in unsampled areas, highlighting potential hotspots.
+
+# Areal data analysis
+
+## Prepare Environment
+
+### Install packages
+
+Install necessary packages if not already installed
+```{r}
+install.packages(c("spDataLarge", "sf", "spdep", "tmap"))
+```
+
+
+### Load the libraries
+```{r}
+library(sf)           # Handling spatial data
+library(spdep)        # Spatial dependency and autocorrelation
+library(tmap)         # Thematic mapping
+library(spDataLarge)  # Contains health-related datasets
+```
+
+
+## Prepare Data
+
+
+The nc dataset from the sf package contains data on sudden infant death syndrome (SIDS) cases in North Carolina counties.
+```{r}
+# Load North Carolina dataset
+nc <- st_read(system.file("shape/nc.shp", package = "sf"))
+
+
+# Check the structure of the dataset
+head(nc)
+```
+
+## Mapping
+
+### Static Map
+
+Plot the North Carolina dataset using tmap
+```{r}
+tm_shape(nc) +
+  tm_polygons("AREA", title = "Area of Counties") +
+  tm_layout(main.title = "North Carolina Counties", main.title.size = 1.5)
+
+```
+
+Plot SIDS rate
+```{r}
+tm_shape(nc) +
+  tm_polygons("SID79", 
+              title = "SIDS Rate (1979)", 
+              palette = "Blues", 
+              style = "quantile")
+
+```
+### Interactive map
+```{r}
+tmap_mode("view")  # Switch to interactive map
+
+tm_shape(nc) +
+  tm_polygons("SID79", 
+              title = "SIDS Cases (1979)", 
+              palette = "Reds")
+
+
+```
+## Spatial autocorrelation
+
+### Global Moran's I
+
+We create neighbors and weights matrices to calculate spatial autocorrelation using Moran's I.
+```{r}
+# Create spatial neighbors object
+nc_neighbors <- poly2nb(nc)
+
+# Convert neighbors to weights list
+nc_weights <- nb2listw(nc_neighbors, style = "W")
+
+# Calculate Moran's I for SIDS incidence in 1979
+moran_result <- moran.test(nc$SID79, nc_weights)
+print(moran_result)
+```
+
+Positive Moran's I suggests spatial clustering (neighboring counties with similar SIDS cases) at global scale.
+A p-value < 0.05 indicates statistically significant clustering.
+
+### Local Moran's I
+```{r}
+# Perform Local Moran's I analysis for SID79 incidence
+local_moran <- localmoran(nc$SID79, nc_weights)
+
+# Add the Local Moran's I values to the dataset
+nc$local_I <- local_moran[, "Ii"]
+
+# Classify regions based on the sign of Local Moran's I
+nc$lisa_cluster <- ifelse(nc$local_I > 0, "Positive Autocorrelation", 
+                          ifelse(nc$local_I < 0, "Negative Autocorrelation", 
+                                 "No Autocorrelation"))
+
+# View the first few rows to check the classifications
+head(nc[, c("local_I", "lisa_cluster")])
+
+```
+
+Plot LISA map based on Local Moran's I value
+```{r}
+tm_shape(nc) +
+  tm_polygons("lisa_cluster", 
+              title = "LISA Map of SID79", 
+              palette = c("red", "blue", "grey"), 
+              labels = c("Positive Autocorrelation", "Negative Autocorrelation", "No Autocorrelation")) +
+  tm_layout(main.title = "LISA Map of SID79 Incidence", main.title.size = 1.5)
+```
+
+Local Moran's I Values:
+
+-Positive values: Indicates clustering of similar values (high-high or low-low).
+-Negative values: Indicates spatial outliers (high-low or low-high).
+-Zero/near-zero values: No clear autocorrelation.
+-LISA Map: This map helps you visualize spatial patterns (positive or negative autocorrelation) without focusing on p-values.
+
+
+
+## Spatial Regression
+Fit a simple spatial autoregressive model to explore factors affecting SIDS cases.
+
+Fit a spatial autoregressive model (SAR) using **spatialreg** package
+SID79: SIDS cases in 1979
+BIR79: Total births in 1979 (used as a predictor)
+```{r}
+library(spatialreg)
+sar_model <- lagsarlm(SID79 ~ BIR79, data = nc, listw = nc_weights)
+summary(sar_model)
+
+```
+Get predicted values
+```{r}
+# Get predicted values
+nc$predicted_SID79 <- fitted(sar_model)
+
+# Check the first few predicted values
+head(nc$predicted_SID79)
+
+```
+
+Map the predicted values
+```{r}
+# Set up tmap mode to plot
+tmap_mode("plot")
+
+# Plot the predicted values using tmap
+tm_shape(nc) +
+  tm_polygons("predicted_SID79", title = "Predicted SID79", palette = "YlGnBu") +
+  tm_layout(main.title = "Predicted SID79 Values from SAR Model", main.title.size = 1.5)
+
+```
+
+Calculate risk score
+```{r}
+average_predicted <- mean(nc$predicted_SID79, na.rm = TRUE)
+nc$risk_score <- nc$predicted_SID79 / average_predicted
+```
+
+Map Relative Risk
+```{r}
+tm_shape(nc) +
+  tm_polygons("risk_score", title = "Risk Score", palette = "RdYlBu") +
+  tm_layout(main.title = "Risk Map Based on Predicted SID79", main.title.size = 1.5)
+```
+# Point Pattern Analysis
+
+## Prepare Environment
+
+### Install packages
+```{r}
+install.packages(c("sf", "spatstat", "spatstat.data", "ggplot2"))
+```
+
+
+### Load Library
+```{r}
+library(sf)              # Handling spatial data
+library(spatstat)        # Point pattern analysis functions
+library(spatstat.data)   # Contains the ohio dataset
+library(ggplot2)         # Mapping
+library(dplyr)           # Data manipulation
+```
+## Prepare data
+
+The chorley object is a marked point pattern (class ppp), where each point corresponds to a cancer case. The marks indicate whether the patient was a lung cancer or larynx cancer patient
+```{r}
+# Load the dataset
+data("chorley", package = "spatstat.data")
+
+# Check the structure of the data
+summary(chorley)
+```
+
+
+## Point Pattern Analysis
+
+### Disease mapping
+
+Plot the point pattern
+```{r}
+plot(chorley, main = "Cancer Cases in Chorley-Ribble Area")
+```
+
+### Kernel Density Estimation
+
+Kernel density estimation helps visualize the intensity (hotspots) of cases across the study area.
+```{r}
+# Estimate the spatial intensity using a Gaussian kernel
+density_chorley <- density(chorley, sigma = 1)
+
+# Plot the kernel density estimate
+plot(density_chorley, main = "Kernel Density of Cancer Cases")
+```
+This map shows the intensity of cancer cases, with brighter areas indicating higher concentrations.
+
+### Quadrat Analysis
+
+**Quadrat Test for Spatial Uniformity**
+
+A quadrat test can determine if the distribution is spatially uniform or if some areas have significantly more cases than expected.
+
+```{r}
+# Perform a quadrat test (divide the area into 5x5 quadrats)
+Q_test <- quadrat.test(chorley, nx = 5, ny = 5)
+
+# Print the test result
+print(Q_test)
+
+# Plot the quadrat counts
+plot(Q_test, main = "Quadrat Test for Chorley Cancer Cases")
+```
+If the p-value is significant, it indicates that the cases are not uniformly distributed and may be clustered in certain areas.
+
+
+### K-function Analysis
+
+The K-function is used to assess whether the points exhibit clustering, randomness, or regularity.
+```{r}
+# Compute the K-function for the point pattern
+K_chorley <- Kest(chorley)
+
+# Plot the K-function
+plot(K_chorley, main = "K-function for Chorley Cancer Cases", legendargs = list(x = "topleft"))
+
+```
+
+If the observed K-function lies above the theoretical K-function (Poisson process), the pattern suggests clustering.
+
+If it lies below, the pattern suggests dispersion.
+
+
+```{r}
+
+```
+
