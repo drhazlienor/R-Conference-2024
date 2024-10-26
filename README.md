@@ -1,4 +1,7 @@
 # Spatial Epidemiology using R for R conference 2024
+Speaker: Dr Hazlienor Binti Mohd Hatta
+Email: drhazlienor@hotmail.com
+Linkedin: https://www.linkedin.com/in/hazlienor/
 
 This repository contains the datasets and code used in the R Conference 2024. The talk focuses on spatial analysis using R utilized in epidemiology
 
